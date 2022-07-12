@@ -1,6 +1,6 @@
 //! Process management syscalls
 
-use crate::config::MAX_SYSCALL_NUM;
+use crate::config::{MAX_SYSCALL_NUM, PAGE_SIZE};
 use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, get_cur_task_info, current_user_token, get_tcb_ref_mut};
 use crate::timer::get_time_us;
 use crate::mm::{translated_refmut, VirtAddr, MapPermission};
@@ -49,11 +49,51 @@ pub fn sys_set_priority(_prio: isize) -> isize {
 
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
 pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    -1
+    if _start & (PAGE_SIZE-1) != 0 {
+        // 没有按照页对齐
+        return -1;
+    }
+
+    if _port & (!0x07) != 0 || (_port & 0x07) == 0 {
+        return -1;
+    } 
+
+    let start_va: VirtAddr = VirtAddr::from(_start).floor().into();
+    let end_va: VirtAddr = VirtAddr::from(_start + _len).ceil().into();
+
+
+    let mut permission = MapPermission::empty();
+    permission.set(MapPermission::U, true);
+
+    if _port & 0x01 != 0 {
+        permission.set(MapPermission::R, true);
+    }
+
+    if _port & 0x02 != 0 {
+        permission.set(MapPermission::W, true);
+    }
+
+    if _port & 0x04 != 0 {
+        permission.set(MapPermission::X, true);
+    }
+
+
+    if !get_tcb_ref_mut(|tcb| {
+        tcb.memory_set.mmap(start_va.into(), end_va.into(), permission)
+    })  {
+        return -1;
+    }
+    
+    0
 }
 
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    -1
+    if !get_tcb_ref_mut(|tcb| {
+        tcb.memory_set.munmap(_start.into(), _len.into())
+    })  {
+        return -1;
+    }
+    0
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info

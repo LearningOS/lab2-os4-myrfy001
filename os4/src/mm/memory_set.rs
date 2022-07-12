@@ -217,6 +217,91 @@ impl MemorySet {
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
     }
+
+    pub fn mmap(&mut self, start_va: usize, end_va: usize, permission: MapPermission) -> bool {
+        if self.check_va_overlap(start_va, end_va) {
+            return false
+        }
+
+        self.insert_framed_area(start_va.into(), end_va.into(), permission);
+
+        true
+
+    }
+
+    pub fn munmap(&mut self, start_va: usize, len: usize) -> bool {
+        
+        let end_va = start_va + len;
+
+
+        if self.check_va_within(start_va, end_va) == false {
+            return false
+        }
+        
+        let mut removed: Vec<_> = self.areas.drain_filter(|area| {
+            let s: VirtAddr = area.vpn_range.get_start().into();
+            let e: VirtAddr = area.vpn_range.get_end().into();
+            let s:usize = s.into();
+            let e:usize = e.into();
+
+            // println!("----{:x},{:x}, {:x},{:X}", s, e, start_va, end_va);
+            if (s  >= start_va &&  e <= end_va) {
+                true
+            } else {
+                false
+            }
+        }).collect();
+
+
+        for x in removed.iter_mut(){
+            let ss:usize = x.vpn_range.get_start().into();
+            let ee:usize = x.vpn_range.get_end().into();
+            println!("unmap {:x}, {:x}", ss, ee);
+            x.unmap(&mut self.page_table);
+        }
+
+        
+        // self.areas.extend(removed);
+
+
+
+        true
+    }
+
+    fn check_va_overlap(&self, start_va: usize, end_va: usize) -> bool {
+        for area in &self.areas {
+            let s:VirtAddr = area.vpn_range.get_start().into();
+            let e: VirtAddr = area.vpn_range.get_end().into();
+
+            let ss: usize = s.into();
+            let ee: usize = e.into();
+
+            if (s < end_va.into() && s >= start_va.into()) || (e < end_va.into() && e > start_va.into()) {
+                // println!("==--==--{:x},{:x},{:x},{:x}", ss,ee,start_va, end_va);
+                return true;
+            }
+        }
+        false
+    }
+
+    fn check_va_within(&self, start_va: usize, end_va: usize) -> bool {
+
+        for area in &self.areas {
+            let s:VirtAddr = area.vpn_range.get_start().into();
+            let e: VirtAddr = area.vpn_range.get_end().into();
+
+            // let ss: usize = s.into();
+            // let ee: usize = e.into();
+
+            // println!("----=== {:x},{:x},{:x},{:x}", ss,ee,start_va, end_va);
+            
+
+            if (s == start_va.into() &&  e == end_va.into()) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 /// map area structure, controls a contiguous piece of virtual memory
