@@ -58,5 +58,16 @@ pub fn sys_munmap(_start: usize, _len: usize) -> isize {
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
-    -1
+    let (status, stats) = get_cur_task_info();
+    let t = translated_refmut(current_user_token(), ti);
+
+    // println!("addr:={}", t as *const TaskInfo as  usize);
+    // println!("size:={}", core::mem::size_of::<TaskInfo>());
+
+    *t = TaskInfo{
+        status,
+        syscall_times: stats.syscall_times.clone(),
+        time: (get_time_us() - stats.first_run_time) / 1000,
+    };
+    0
 }
