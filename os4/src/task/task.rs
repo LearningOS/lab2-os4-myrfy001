@@ -36,12 +36,10 @@ impl TaskControlBlock {
             kernel_stack_top.into(),
             MapPermission::R | MapPermission::W,
         );
-
         let stats = TaskStatsInfo{
             first_run_time: 0,
             syscall_times:[0; MAX_SYSCALL_NUM], 
         };
-
         let task_control_block = Self {
             task_status,
             task_cx: TaskContext::goto_trap_return(kernel_stack_top),
@@ -70,7 +68,6 @@ pub enum TaskStatus {
     Running,
     Exited,
 }
-
 
 #[derive(Copy, Clone, Debug)]
 pub struct TaskStatsInfo {

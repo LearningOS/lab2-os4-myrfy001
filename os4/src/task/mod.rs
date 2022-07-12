@@ -84,12 +84,6 @@ impl TaskManager {
         let next_task = &mut inner.tasks[0];
         next_task.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
-
-        // do statistic
-        inner.tasks[0].stats.first_run_time = get_time_us();
-        
-
-
         drop(inner);
         let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
@@ -147,12 +141,6 @@ impl TaskManager {
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
-
-            // do statistic
-            if inner.tasks[current].stats.first_run_time == 0 {
-                inner.tasks[current].stats.first_run_time = get_time_us();
-            }
-                        
             drop(inner);
             // before this, we should drop local variables that must be dropped manually
             unsafe {
@@ -163,7 +151,6 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
-
 
     fn update_cur_task_syscall_cnt(&self, syscall_id: usize) {
         let mut inner = self.inner.exclusive_access();
@@ -185,8 +172,6 @@ impl TaskManager {
         let t = &mut inner.tasks[current];
         f(t)
     }
-
-
 }
 
 /// Run the first task in task list.
